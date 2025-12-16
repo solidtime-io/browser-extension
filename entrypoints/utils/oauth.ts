@@ -7,7 +7,7 @@ export const endpoint = useStorage(
 );
 export const clientId = useStorage(
   "instance_client_id",
-  "9c994748-c593-4a6d-951b-6849c829bc4e",
+  "019b27e8-a52a-71d8-8d67-071cff97f315",
 );
 
 // Use chrome.storage for tokens (survives popup closing)
