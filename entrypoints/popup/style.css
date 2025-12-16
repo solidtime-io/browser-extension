@@ -1,0 +1,11 @@
+/* Import shared solidtime styles from UI package */
+@import "@solidtime/ui/styles.css";
+
+/* Desktop app specific styles - Inter font */
+@font-face {
+    font-family: "Inter";
+    src: url("/fonts/InterVariable.woff2") format("woff2-variations");
+    font-weight: 100 900;
+    font-style: normal;
+    font-display: swap;
+}
