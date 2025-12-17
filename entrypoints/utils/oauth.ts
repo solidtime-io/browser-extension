@@ -39,13 +39,8 @@ browser.storage.onChanged.addListener((changes, area) => {
 // Initialize
 loadTokens();
 
-export const getRedirectUrl = () => {
-  const extensionId = browser.runtime.id;
-  if (navigator.userAgent.includes("Firefox")) {
-    return `https://${extensionId}.extensions.allizom.org/`;
-  }
-  return `https://${extensionId}.chromiumapp.org/`;
-};
+// Use browser.identity.getRedirectURL() which works for both Firefox and Chrome
+export const getRedirectUrl = () => browser.identity.getRedirectURL();
 
 export const isLoggedIn = computed(() => !!accessToken.value);
 

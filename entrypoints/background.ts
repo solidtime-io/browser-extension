@@ -25,14 +25,6 @@ export default defineBackground(() => {
     return [...Array(num)].map(() => Math.random().toString(36)[2]).join("");
   }
 
-  function getRedirectUrl() {
-    const extensionId = browser.runtime.id;
-    if (navigator.userAgent.includes("Firefox")) {
-      return `https://${extensionId}.extensions.allizom.org/`;
-    }
-    return `https://${extensionId}.chromiumapp.org/`;
-  }
-
   // Listen for messages from popup or content scripts
   browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === "START_OAUTH_FLOW") {
@@ -47,7 +39,7 @@ export default defineBackground(() => {
           const hashed = await sha256(oauthVerifier);
           oauthChallenge = base64urlencode(hashed);
 
-          const redirectUrl = getRedirectUrl();
+          const redirectUrl = browser.identity.getRedirectURL();
           const loginUrl =
             endpoint +
             "/oauth/authorize?client_id=" +
