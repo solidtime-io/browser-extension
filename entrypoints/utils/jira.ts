@@ -259,9 +259,15 @@ function createJiraTimeTrackingButton(
 export async function injectJiraTimeTrackingButton(
   actionsWrapper: HTMLElement,
   issueDescription: string,
+  skipExistingCheck = false,
 ): Promise<void> {
-  // Remove existing button if present
+  // Check if button already exists and skip if so (unless explicitly told to replace)
   const existingButton = document.getElementById(BUTTON_WRAPPER_ID);
+  if (existingButton && !skipExistingCheck) {
+    return;
+  }
+
+  // Remove existing button if present
   if (existingButton) {
     existingButton.remove();
   }
@@ -366,7 +372,11 @@ async function handleJiraTrackingClick(
     // Refresh the button
     const actionsWrapper = findJiraActionsWrapper();
     if (actionsWrapper) {
-      await injectJiraTimeTrackingButton(actionsWrapper, issueDescription);
+      await injectJiraTimeTrackingButton(
+        actionsWrapper,
+        issueDescription,
+        true,
+      );
     }
   } catch (error) {
     console.error("Failed to toggle time tracking:", error);

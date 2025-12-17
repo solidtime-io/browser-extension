@@ -332,9 +332,15 @@ function createTimeTrackingSection(
 export async function injectTimeTrackingSection(
   container: HTMLElement,
   issueDescription: string,
+  skipExistingCheck = false,
 ): Promise<void> {
-  // Remove existing section if present
+  // Check if section already exists and skip if so (unless explicitly told to replace)
   const existingSection = document.getElementById(SECTION_ID);
+  if (existingSection && !skipExistingCheck) {
+    return;
+  }
+
+  // Remove existing section if present
   if (existingSection) {
     existingSection.remove();
   }
@@ -451,7 +457,11 @@ async function handleTrackingClick(
     // Refresh the section by finding the properties sidebar container
     const propertiesSidebar = findPropertiesSidebar();
     if (propertiesSidebar) {
-      await injectTimeTrackingSection(propertiesSidebar, issueDescription);
+      await injectTimeTrackingSection(
+        propertiesSidebar,
+        issueDescription,
+        true,
+      );
     }
   } catch (error) {
     console.error("Failed to toggle time tracking:", error);

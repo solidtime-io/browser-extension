@@ -244,9 +244,15 @@ function createPlaneTimeTrackingButton(
 export async function injectPlaneTimeTrackingButton(
   actionsWrapper: HTMLElement,
   issueDescription: string,
+  skipExistingCheck = false,
 ): Promise<void> {
-  // Remove existing button if present
+  // Check if button already exists and skip if so (unless explicitly told to replace)
   const existingButton = document.getElementById(BUTTON_ID);
+  if (existingButton && !skipExistingCheck) {
+    return;
+  }
+
+  // Remove existing button if present
   if (existingButton) {
     existingButton.remove();
   }
@@ -348,7 +354,11 @@ async function handlePlaneTrackingClick(
     // Refresh the button
     const actionsWrapper = findPlaneActionsWrapper();
     if (actionsWrapper) {
-      await injectPlaneTimeTrackingButton(actionsWrapper, issueDescription);
+      await injectPlaneTimeTrackingButton(
+        actionsWrapper,
+        issueDescription,
+        true,
+      );
     }
   } catch (error) {
     console.error("Failed to toggle time tracking:", error);
