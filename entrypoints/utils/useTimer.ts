@@ -64,14 +64,39 @@ export function useTimer() {
     }
 
     /**
-     * Start a new timer
-     * Copies properties from the last time entry if available
+     * Start a new timer using the current UI values.
+     * Takes whatever is currently set on currentTimeEntry (description, project, task, etc.)
+     * and starts a timer with those values. Does not fall back to lastTimeEntry.
      */
     function startTimer() {
         const startTime = dayjs().utc().format()
+        const current = currentTimeEntry.value
+
+        currentTimeEntry.value = {
+            ...emptyTimeEntry,
+            project_id: current.project_id,
+            task_id: current.task_id,
+            description: current.description,
+            tags: current.tags,
+            billable: current.billable,
+            start: startTime,
+        }
+
+        const timeEntryToCreate: CreateTimeEntryBody = {
+            ...currentTimeEntry.value,
+            member_id: currentMembershipId.value!,
+        }
+        timeEntryCreate.mutate(timeEntryToCreate)
+    }
+
+    /**
+     * Continue the last timer.
+     * Starts a new timer using the values from lastTimeEntry (description, project, task, etc.).
+     */
+    function continueLastTimer() {
+        const startTime = dayjs().utc().format()
 
         if (lastTimeEntry.value && lastTimeEntry.value.start) {
-            // Copy properties from last entry
             currentTimeEntry.value = {
                 ...emptyTimeEntry,
                 project_id: lastTimeEntry.value.project_id,
@@ -82,7 +107,6 @@ export function useTimer() {
                 start: startTime,
             }
         } else {
-            // First timer - start fresh
             currentTimeEntry.value = {
                 ...emptyTimeEntry,
                 start: startTime,
@@ -102,6 +126,7 @@ export function useTimer() {
         isActive,
         stopTimer,
         startTimer,
+        continueLastTimer,
         timeEntryStop,
         timeEntryCreate,
     }

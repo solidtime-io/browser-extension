@@ -211,7 +211,11 @@ watch(
 
 watch(currentTimeEntryResponseIsError, () => {
     if (currentTimeEntryResponseIsError.value) {
-        currentTimeEntry.value = { ...emptyTimeEntry };
+        // Only reset if we had a previously started timer (has an ID)
+        // Don't reset if user is preparing a new time entry (no ID yet)
+        if (currentTimeEntry.value.id !== '') {
+            currentTimeEntry.value = { ...emptyTimeEntry };
+        }
     }
 });
 
