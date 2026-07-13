@@ -5,7 +5,7 @@
 import { apiClient } from "./api";
 import { getCurrentTimeEntry } from "./timeEntries";
 import type { CreateTimeEntryBody } from "@solidtime/api";
-import { accessToken } from "./oauth";
+import { accessToken, ready } from "./oauth";
 import { dayjs } from "./dayjs";
 
 export interface PlaneIssueInfo {
@@ -299,6 +299,10 @@ async function handlePlaneTrackingClick(
   button.style.cursor = "not-allowed";
 
   try {
+    // Ensure instance config + tokens are loaded from shared storage before
+    // building the API client (content scripts load these asynchronously).
+    await ready;
+
     if (!accessToken.value) {
       alert("Please log in to Solidtime first by clicking the extension icon");
       return;

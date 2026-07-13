@@ -1,43 +1,59 @@
-import { computed, ref } from "vue";
-import { useStorage } from "@vueuse/core";
+import { computed, ref, watch } from "vue";
 
-export const endpoint = useStorage(
-  "instance_endpoint",
-  "https://app.solidtime.io",
-);
-export const clientId = useStorage(
-  "instance_client_id",
-  "019b27e8-a52a-71d8-8d67-071cff97f315",
-);
+const DEFAULT_ENDPOINT = "https://app.solidtime.io";
+const DEFAULT_CLIENT_ID = "019b27e8-a52a-71d8-8d67-071cff97f315";
 
-// Use chrome.storage for tokens (survives popup closing)
+export const endpoint = ref(DEFAULT_ENDPOINT);
+export const clientId = ref(DEFAULT_CLIENT_ID);
 export const accessToken = ref("");
 export const refreshToken = ref("");
 
-// Load tokens from chrome.storage on init
-async function loadTokens() {
+let loaded = false;
+
+// Load instance config + tokens from chrome.storage on init. Exported so
+// callers can await it before making the first authenticated request.
+export const ready = (async function loadTokens() {
   const result = await browser.storage.local.get([
+    "instance_endpoint",
+    "instance_client_id",
     "access_token",
     "refresh_token",
   ]);
-  accessToken.value = result.access_token || "";
-  refreshToken.value = result.refresh_token || "";
-}
+  endpoint.value = (result.instance_endpoint as string) || DEFAULT_ENDPOINT;
+  clientId.value = (result.instance_client_id as string) || DEFAULT_CLIENT_ID;
+  accessToken.value = (result.access_token as string) || "";
+  refreshToken.value = (result.refresh_token as string) || "";
+  loaded = true;
+})();
 
-// Watch for storage changes (from background script)
+// Persist instance config changes (made in the popup settings modal) back to
+// the shared storage so content scripts pick them up.
+watch(endpoint, (value) => {
+  if (loaded) browser.storage.local.set({ instance_endpoint: value });
+});
+watch(clientId, (value) => {
+  if (loaded) browser.storage.local.set({ instance_client_id: value });
+});
+
+// Watch for storage changes (from other contexts / background script)
 browser.storage.onChanged.addListener((changes, area) => {
   if (area === "local") {
+    if (changes.instance_endpoint) {
+      endpoint.value =
+        (changes.instance_endpoint.newValue as string) || DEFAULT_ENDPOINT;
+    }
+    if (changes.instance_client_id) {
+      clientId.value =
+        (changes.instance_client_id.newValue as string) || DEFAULT_CLIENT_ID;
+    }
     if (changes.access_token) {
-      accessToken.value = changes.access_token.newValue || "";
+      accessToken.value = (changes.access_token.newValue as string) || "";
     }
     if (changes.refresh_token) {
-      refreshToken.value = changes.refresh_token.newValue || "";
+      refreshToken.value = (changes.refresh_token.newValue as string) || "";
     }
   }
 });
-
-// Initialize
-loadTokens();
 
 // Use browser.identity.getRedirectURL() which works for both Firefox and Chrome
 export const getRedirectUrl = () => browser.identity.getRedirectURL();
