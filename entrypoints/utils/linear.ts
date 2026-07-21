@@ -329,59 +329,71 @@ function createTimeTrackingSection(
 /**
  * Injects the Time Tracking section into the sidebar
  */
+let injectionInProgress = false;
+
 export async function injectTimeTrackingSection(
   container: HTMLElement,
   issueDescription: string,
   skipExistingCheck = false,
 ): Promise<void> {
+  // Only one injection at a time: the tracking-state lookup below is async,
+  // and DOM mutations can retrigger this function before the first call has
+  // appended its section, resulting in duplicate sections.
+  if (injectionInProgress) {
+    return;
+  }
+
   // Check if section already exists and skip if so (unless explicitly told to replace)
   const existingSection = document.getElementById(SECTION_ID);
   if (existingSection && !skipExistingCheck) {
     return;
   }
 
-  // Remove existing section if present
-  if (existingSection) {
-    existingSection.remove();
-  }
-
-  // Check if there's a current time entry
-  let isTracking = false;
+  injectionInProgress = true;
   try {
-    if (accessToken.value) {
-      const currentEntry = await getCurrentTimeEntry();
-      isTracking = currentEntry?.data?.id ? true : false;
+    // Check if there's a current time entry
+    let isTracking = false;
+    try {
+      if (accessToken.value) {
+        const currentEntry = await getCurrentTimeEntry();
+        isTracking = currentEntry?.data?.id ? true : false;
+      }
+    } catch (error) {
+      console.error("Failed to get current time entry:", error);
     }
-  } catch (error) {
-    console.error("Failed to get current time entry:", error);
-  }
 
-  // Create the section
-  const section = createTimeTrackingSection(issueDescription, isTracking);
+    // Remove any section that existed before or appeared while awaiting
+    document.getElementById(SECTION_ID)?.remove();
 
-  // Find the Project section and insert after it
-  const projectSection = Array.from(container.children).find((child) => {
-    const labelText = child.querySelector("span")?.textContent;
-    return labelText === "Project";
-  });
+    // Create the section
+    const section = createTimeTrackingSection(issueDescription, isTracking);
 
-  if (projectSection && projectSection.nextSibling) {
-    // Insert after Project section
-    container.insertBefore(section, projectSection.nextSibling);
-  } else if (projectSection) {
-    // Project is the last element, append after it
-    container.appendChild(section);
-  } else {
-    // Fallback: if no Project section found, append at the end
-    container.appendChild(section);
-  }
+    // Find the Project section and insert after it
+    const projectSection = Array.from(container.children).find((child) => {
+      const labelText = child.querySelector("span")?.textContent;
+      return labelText === "Project";
+    });
 
-  // Add click handler
-  const button = document.getElementById(BUTTON_ID);
-  if (button) {
-    button.addEventListener("click", () =>
-      handleTrackingClick(issueDescription, isTracking),
-    );
+    if (projectSection && projectSection.nextSibling) {
+      // Insert after Project section
+      container.insertBefore(section, projectSection.nextSibling);
+    } else if (projectSection) {
+      // Project is the last element, append after it
+      container.appendChild(section);
+    } else {
+      // Fallback: if no Project section found, append at the end
+      container.appendChild(section);
+    }
+
+    // Add click handler
+    const button = document.getElementById(BUTTON_ID);
+    if (button) {
+      button.addEventListener("click", () =>
+        handleTrackingClick(issueDescription, isTracking),
+      );
+    }
+  } finally {
+    injectionInProgress = false;
   }
 }
 
