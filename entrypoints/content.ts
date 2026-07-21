@@ -21,6 +21,8 @@ import {
   removeJiraTimeTrackingButton,
 } from "./utils/jira";
 
+import { settingsLoaded } from "./utils/oauth";
+
 import {
   isPlaneIssuePage,
   getPlaneIssueInfo,
@@ -40,7 +42,11 @@ export default defineContentScript({
     "*://*.atlassian.net/*",
     "*://app.plane.so/*",
   ],
-  main() {
+  async main() {
+    // Make sure the configured instance endpoint is available before any
+    // integration makes API calls.
+    await settingsLoaded;
+
     // Determine which platform we're on
     const isLinear = window.location.hostname.includes("linear.app");
     const isJira = window.location.hostname.includes("atlassian.net");

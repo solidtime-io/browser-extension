@@ -7,7 +7,7 @@ import {
     InputLabel,
 } from "@solidtime/ui";
 import { endpoint, clientId } from "../../utils/oauth";
-import { ref } from "vue";
+import { ref, watch } from "vue";
 
 defineProps({
     show: {
@@ -28,6 +28,15 @@ const emit = defineEmits(["close"]);
 
 const tempEndpoint = ref(endpoint.value);
 const tempClientId = ref(clientId.value);
+
+// The persisted settings are loaded asynchronously from extension storage and
+// may change after this component is set up — keep the inputs in sync.
+watch(endpoint, (value) => {
+    tempEndpoint.value = value;
+});
+watch(clientId, (value) => {
+    tempClientId.value = value;
+});
 
 const close = () => {
     emit("close");
