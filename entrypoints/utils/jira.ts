@@ -256,48 +256,60 @@ function createJiraTimeTrackingButton(
 /**
  * Injects the Time Tracking button into the Jira actions wrapper
  */
+let injectionInProgress = false;
+
 export async function injectJiraTimeTrackingButton(
   actionsWrapper: HTMLElement,
   issueDescription: string,
   skipExistingCheck = false,
 ): Promise<void> {
+  // Only one injection at a time: the tracking-state lookup below is async,
+  // and DOM mutations can retrigger this function before the first call has
+  // appended its button, resulting in duplicate buttons.
+  if (injectionInProgress) {
+    return;
+  }
+
   // Check if button already exists and skip if so (unless explicitly told to replace)
   const existingButton = document.getElementById(BUTTON_WRAPPER_ID);
   if (existingButton && !skipExistingCheck) {
     return;
   }
 
-  // Remove existing button if present
-  if (existingButton) {
-    existingButton.remove();
-  }
-
-  // Check if there's a current time entry
-  let isTracking = false;
+  injectionInProgress = true;
   try {
-    if (accessToken.value) {
-      const currentEntry = await getCurrentTimeEntry();
-      isTracking = currentEntry?.data?.id ? true : false;
+    // Check if there's a current time entry
+    let isTracking = false;
+    try {
+      if (accessToken.value) {
+        const currentEntry = await getCurrentTimeEntry();
+        isTracking = currentEntry?.data?.id ? true : false;
+      }
+    } catch (error) {
+      console.error("Failed to get current time entry:", error);
     }
-  } catch (error) {
-    console.error("Failed to get current time entry:", error);
-  }
 
-  // Create the button
-  const buttonWrapper = createJiraTimeTrackingButton(
-    issueDescription,
-    isTracking,
-  );
+    // Remove any button that existed before or appeared while awaiting
+    document.getElementById(BUTTON_WRAPPER_ID)?.remove();
 
-  // Insert the button at the end of the actions wrapper
-  actionsWrapper.appendChild(buttonWrapper);
-
-  // Add click handler
-  const button = document.getElementById(BUTTON_ID);
-  if (button) {
-    button.addEventListener("click", () =>
-      handleJiraTrackingClick(issueDescription, isTracking),
+    // Create the button
+    const buttonWrapper = createJiraTimeTrackingButton(
+      issueDescription,
+      isTracking,
     );
+
+    // Insert the button at the end of the actions wrapper
+    actionsWrapper.appendChild(buttonWrapper);
+
+    // Add click handler
+    const button = document.getElementById(BUTTON_ID);
+    if (button) {
+      button.addEventListener("click", () =>
+        handleJiraTrackingClick(issueDescription, isTracking),
+      );
+    }
+  } finally {
+    injectionInProgress = false;
   }
 }
 

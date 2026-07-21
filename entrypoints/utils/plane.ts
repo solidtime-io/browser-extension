@@ -241,45 +241,57 @@ function createPlaneTimeTrackingButton(
 /**
  * Injects the Time Tracking button into the Plane actions wrapper
  */
+let injectionInProgress = false;
+
 export async function injectPlaneTimeTrackingButton(
   actionsWrapper: HTMLElement,
   issueDescription: string,
   skipExistingCheck = false,
 ): Promise<void> {
+  // Only one injection at a time: the tracking-state lookup below is async,
+  // and DOM mutations can retrigger this function before the first call has
+  // appended its button, resulting in duplicate buttons.
+  if (injectionInProgress) {
+    return;
+  }
+
   // Check if button already exists and skip if so (unless explicitly told to replace)
   const existingButton = document.getElementById(BUTTON_ID);
   if (existingButton && !skipExistingCheck) {
     return;
   }
 
-  // Remove existing button if present
-  if (existingButton) {
-    existingButton.remove();
-  }
-
-  // Check if there's a current time entry
-  let isTracking = false;
+  injectionInProgress = true;
   try {
-    if (accessToken.value) {
-      const currentEntry = await getCurrentTimeEntry();
-      isTracking = currentEntry?.data?.id ? true : false;
+    // Check if there's a current time entry
+    let isTracking = false;
+    try {
+      if (accessToken.value) {
+        const currentEntry = await getCurrentTimeEntry();
+        isTracking = currentEntry?.data?.id ? true : false;
+      }
+    } catch (error) {
+      console.error("Failed to get current time entry:", error);
     }
-  } catch (error) {
-    console.error("Failed to get current time entry:", error);
-  }
 
-  // Create the button
-  const button = createPlaneTimeTrackingButton(issueDescription, isTracking);
+    // Remove any button that existed before or appeared while awaiting
+    document.getElementById(BUTTON_ID)?.remove();
 
-  // Insert the button at the end of the actions wrapper
-  actionsWrapper.appendChild(button);
+    // Create the button
+    const button = createPlaneTimeTrackingButton(issueDescription, isTracking);
 
-  // Add click handler
-  const buttonElement = document.getElementById(BUTTON_ID);
-  if (buttonElement) {
-    buttonElement.addEventListener("click", () =>
-      handlePlaneTrackingClick(issueDescription, isTracking),
-    );
+    // Insert the button at the end of the actions wrapper
+    actionsWrapper.appendChild(button);
+
+    // Add click handler
+    const buttonElement = document.getElementById(BUTTON_ID);
+    if (buttonElement) {
+      buttonElement.addEventListener("click", () =>
+        handlePlaneTrackingClick(issueDescription, isTracking),
+      );
+    }
+  } finally {
+    injectionInProgress = false;
   }
 }
 
