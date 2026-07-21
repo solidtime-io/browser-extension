@@ -1,14 +1,64 @@
-import { computed, ref } from "vue";
-import { useStorage } from "@vueuse/core";
+import { computed, ref, watch } from "vue";
 
-export const endpoint = useStorage(
-  "instance_endpoint",
-  "https://app.solidtime.io",
-);
-export const clientId = useStorage(
-  "instance_client_id",
-  "019b27e8-a52a-71d8-8d67-071cff97f315",
-);
+const DEFAULT_ENDPOINT = "https://app.solidtime.io";
+const DEFAULT_CLIENT_ID = "019b27e8-a52a-71d8-8d67-071cff97f315";
+
+// Instance settings must live in extension storage (browser.storage), NOT in
+// localStorage: content scripts share localStorage with the host page (e.g.
+// *.atlassian.net), where these keys never exist — so API calls made from
+// injected buttons would silently go to the default cloud endpoint instead of
+// the configured self-hosted instance.
+export const endpoint = ref(DEFAULT_ENDPOINT);
+export const clientId = ref(DEFAULT_CLIENT_ID);
+
+// Resolves once the persisted settings have been read; contexts that make API
+// calls right after startup (content scripts) should await this.
+export const settingsLoaded = (async () => {
+  const result = await browser.storage.local.get([
+    "instance_endpoint",
+    "instance_client_id",
+  ]);
+  let storedEndpoint =
+    typeof result.instance_endpoint === "string" ? result.instance_endpoint : "";
+  let storedClientId =
+    typeof result.instance_client_id === "string"
+      ? result.instance_client_id
+      : "";
+
+  // Migrate settings that a previous version stored in the extension page's
+  // localStorage. Only extension pages (popup) may do this — a content
+  // script's localStorage belongs to the host page.
+  if (
+    !storedEndpoint &&
+    !storedClientId &&
+    (location.protocol === "chrome-extension:" ||
+      location.protocol === "moz-extension:")
+  ) {
+    storedEndpoint = window.localStorage.getItem("instance_endpoint") || "";
+    storedClientId = window.localStorage.getItem("instance_client_id") || "";
+    if (storedEndpoint || storedClientId) {
+      await browser.storage.local.set({
+        instance_endpoint: storedEndpoint || DEFAULT_ENDPOINT,
+        instance_client_id: storedClientId || DEFAULT_CLIENT_ID,
+      });
+    }
+  }
+
+  if (storedEndpoint) {
+    endpoint.value = storedEndpoint;
+  }
+  if (storedClientId) {
+    clientId.value = storedClientId;
+  }
+})();
+
+// Persist settings whenever they are changed (e.g. from the settings modal)
+watch([endpoint, clientId], async ([newEndpoint, newClientId]) => {
+  await browser.storage.local.set({
+    instance_endpoint: newEndpoint,
+    instance_client_id: newClientId,
+  });
+});
 
 // Use chrome.storage for tokens (survives popup closing)
 export const accessToken = ref("");
@@ -24,7 +74,7 @@ async function loadTokens() {
   refreshToken.value = result.refresh_token || "";
 }
 
-// Watch for storage changes (from background script)
+// Watch for storage changes (from background script or other contexts)
 browser.storage.onChanged.addListener((changes, area) => {
   if (area === "local") {
     if (changes.access_token) {
@@ -32,6 +82,20 @@ browser.storage.onChanged.addListener((changes, area) => {
     }
     if (changes.refresh_token) {
       refreshToken.value = changes.refresh_token.newValue || "";
+    }
+    if (changes.instance_endpoint) {
+      const newEndpoint = changes.instance_endpoint.newValue;
+      endpoint.value =
+        typeof newEndpoint === "string" && newEndpoint
+          ? newEndpoint
+          : DEFAULT_ENDPOINT;
+    }
+    if (changes.instance_client_id) {
+      const newClientId = changes.instance_client_id.newValue;
+      clientId.value =
+        typeof newClientId === "string" && newClientId
+          ? newClientId
+          : DEFAULT_CLIENT_ID;
     }
   }
 });
