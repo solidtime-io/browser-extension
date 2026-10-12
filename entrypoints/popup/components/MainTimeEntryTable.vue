@@ -222,6 +222,8 @@ watch(currentTimeEntryResponseIsError, () => {
 watch(currentTimeEntryResponse, () => {
     if (currentTimeEntryResponse.value?.data) {
         currentTimeEntry.value = { ...currentTimeEntryResponse.value?.data };
+    } else if (currentTimeEntryResponse.value?.data === null && currentTimeEntry.value.id !== '') {
+        currentTimeEntry.value = { ...emptyTimeEntry };
     }
 });
 

@@ -1,4 +1,5 @@
 import { apiClient } from './api'
+import { isAxiosError } from 'axios'
 import type {
     CreateTimeEntryBody,
     TimeEntry,
@@ -24,9 +25,20 @@ export const emptyTimeEntry = {
 
 const offlineUuidStore = {} as Record<string, string>
 
-export function getCurrentTimeEntry() {
+export async function getCurrentTimeEntry() {
     const client = apiClient()
-    return client.getMyActiveTimeEntry({})
+    try {
+        return await client.getMyActiveTimeEntry({})
+    } catch (error) {
+        if (
+            isAxiosError(error) &&
+            error.response?.status === 404 &&
+            error.response.data?.message === 'No active time entry'
+        ) {
+            return { data: null }
+        }
+        throw error
+    }
 }
 
 export function useTimeEntryStopMutation() {
