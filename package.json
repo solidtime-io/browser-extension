@@ -12,6 +12,7 @@
     "zip": "wxt zip",
     "zip:firefox": "wxt zip -b firefox",
     "compile": "vue-tsc --noEmit",
+    "test": "vitest run",
     "postinstall": "wxt prepare",
     "generate-icons": "node scripts/generate-icons.mjs"
   },
@@ -31,9 +32,11 @@
     "@tailwindcss/typography": "^0.5.19",
     "@wxt-dev/module-vue": "^1.0.2",
     "autoprefixer": "^10.4.22",
+    "happy-dom": "^21.0.1",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.4",
     "typescript": "^5.9.2",
+    "vitest": "^4.1.11",
     "vue-tsc": "^2.2.0",
     "wxt": "^0.20.6"
   }

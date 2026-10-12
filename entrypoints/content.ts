@@ -33,14 +33,17 @@ import {
   removePlaneTimeTrackingButton,
 } from "./utils/plane";
 
+import { initializeGitHub } from "./utils/github";
+
 export default defineContentScript({
   matches: [
     "*://linear.app/*",
     "*://app.linear.app/*",
     "*://*.atlassian.net/*",
     "*://app.plane.so/*",
+    "https://github.com/*",
   ],
-  main() {
+  main(ctx) {
     // Determine which platform we're on
     const isLinear = window.location.hostname.includes("linear.app");
     const isJira = window.location.hostname.includes("atlassian.net");
@@ -52,6 +55,8 @@ export default defineContentScript({
       initializeJira();
     } else if (isPlane) {
       initializePlane();
+    } else if (window.location.hostname === "github.com") {
+      initializeGitHub(ctx);
     }
   },
 });
