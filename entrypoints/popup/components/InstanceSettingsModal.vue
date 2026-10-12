@@ -6,7 +6,7 @@ import {
     TextInput,
     InputLabel,
 } from "@solidtime/ui";
-import { endpoint, clientId } from "../../utils/oauth";
+import { endpoint, clientId, saveInstanceSettings } from "../../utils/oauth";
 import { ref } from "vue";
 
 defineProps({
@@ -28,19 +28,24 @@ const emit = defineEmits(["close"]);
 
 const tempEndpoint = ref(endpoint.value);
 const tempClientId = ref(clientId.value);
+const saveError = ref("");
 
 const close = () => {
     emit("close");
 };
 
-function submit() {
+async function submit() {
     // remove last character if it is a slash
     if (tempEndpoint.value[tempEndpoint.value.length - 1] === "/") {
         tempEndpoint.value = tempEndpoint.value.slice(0, -1);
     }
-    endpoint.value = tempEndpoint.value;
-    clientId.value = tempClientId.value;
-    emit("close");
+    saveError.value = "";
+    try {
+        await saveInstanceSettings(tempEndpoint.value, tempClientId.value);
+        emit("close");
+    } catch {
+        saveError.value = "Could not save instance settings. Please try again.";
+    }
 }
 </script>
 
@@ -105,6 +110,10 @@ function submit() {
                 </button>
             </div>
         </div>
+
+        <p v-if="saveError" role="alert" class="px-6 pb-4 text-sm text-red-500">
+            {{ saveError }}
+        </p>
 
         <div
             class="flex flex-row justify-end px-6 py-4 border-t space-x-2 border-card-background-separator bg-default-background rounded-b-2xl text-end"

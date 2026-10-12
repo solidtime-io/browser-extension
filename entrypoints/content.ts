@@ -32,6 +32,8 @@ import {
   injectPlaneTimeTrackingButton,
   removePlaneTimeTrackingButton,
 } from "./utils/plane";
+import { watch } from "vue";
+import { isLoggedIn } from "./utils/oauth";
 
 export default defineContentScript({
   matches: [
@@ -40,18 +42,24 @@ export default defineContentScript({
     "*://*.atlassian.net/*",
     "*://app.plane.so/*",
   ],
-  main() {
+  main(ctx) {
     // Determine which platform we're on
     const isLinear = window.location.hostname.includes("linear.app");
     const isJira = window.location.hostname.includes("atlassian.net");
     const isPlane = window.location.hostname.includes("plane.so");
+    let refreshTracking: (() => void) | undefined;
 
     if (isLinear) {
-      initializeLinear();
+      refreshTracking = initializeLinear();
     } else if (isJira) {
-      initializeJira();
+      refreshTracking = initializeJira();
     } else if (isPlane) {
-      initializePlane();
+      refreshTracking = initializePlane();
+    }
+
+    if (refreshTracking) {
+      const unwatch = watch(isLoggedIn, refreshTracking);
+      ctx.onInvalidated(unwatch);
     }
   },
 });
@@ -59,7 +67,7 @@ export default defineContentScript({
 // Linear integration
 function initializeLinear() {
   // Function to inject time tracking if on a Linear issue page
-  async function handlePageLoad() {
+  async function handlePageLoad(refresh = false) {
     // Check if we're on an issue page
     if (!isLinearIssuePage()) {
       removeTimeTrackingSection();
@@ -67,7 +75,7 @@ function initializeLinear() {
     }
 
     // Don't inject if already exists
-    if (document.getElementById("solidtime-time-tracking-section")) {
+    if (!refresh && document.getElementById("solidtime-time-tracking-section")) {
       return;
     }
 
@@ -96,7 +104,7 @@ function initializeLinear() {
       const issueDescription = `${issueInfo.issueId} ${issueTitle}`;
 
       // Inject the time tracking section
-      await injectTimeTrackingSection(propertiesSidebar, issueDescription);
+      await injectTimeTrackingSection(propertiesSidebar, issueDescription, refresh);
     } catch (error) {
       console.error(
         "Solidtime: Failed to inject time tracking section:",
@@ -106,12 +114,15 @@ function initializeLinear() {
   }
 
   // Initial load
-  handlePageLoad();
+  let pageLoad = handlePageLoad();
 
   // Watch for URL changes (Linear is an SPA)
   observeLinearUrlChanges(() => {
-    handlePageLoad();
+    pageLoad = pageLoad.then(() => handlePageLoad());
   });
+
+  // Serialize auth refreshes with page loads so they cannot inject duplicate buttons.
+  return () => { pageLoad = pageLoad.then(() => handlePageLoad(true)); };
 }
 
 // Jira integration
@@ -120,7 +131,7 @@ function initializeJira() {
   let actionsWrapperObserver: MutationObserver | null = null;
 
   // Function to inject time tracking if on a Jira issue page
-  async function handlePageLoad() {
+  async function handlePageLoad(refresh = false) {
     // Disconnect previous observer if it exists
     if (actionsWrapperObserver) {
       actionsWrapperObserver.disconnect();
@@ -134,7 +145,7 @@ function initializeJira() {
     }
 
     // Don't inject if already exists
-    if (document.getElementById("solidtime-jira-button-wrapper")) {
+    if (!refresh && document.getElementById("solidtime-jira-button-wrapper")) {
       return;
     }
 
@@ -162,7 +173,7 @@ function initializeJira() {
       const issueDescription = `${issueInfo.issueKey} ${issueTitle}`;
 
       // Inject the time tracking button
-      await injectJiraTimeTrackingButton(actionsWrapper, issueDescription);
+      await injectJiraTimeTrackingButton(actionsWrapper, issueDescription, refresh);
 
       // Set up observer to watch for DOM changes that might remove the button
       // This observes the entire document body to catch when the actions wrapper itself gets replaced
@@ -176,12 +187,14 @@ function initializeJira() {
   }
 
   // Initial load
-  handlePageLoad();
+  let pageLoad = handlePageLoad();
 
   // Watch for URL changes (Jira is an SPA)
   observeJiraUrlChanges(() => {
-    handlePageLoad();
+    pageLoad = pageLoad.then(() => handlePageLoad());
   });
+
+  return () => { pageLoad = pageLoad.then(() => handlePageLoad(true)); };
 }
 
 // Plane integration
@@ -190,7 +203,7 @@ function initializePlane() {
   let actionsWrapperObserver: MutationObserver | null = null;
 
   // Function to inject time tracking if on a Plane issue page
-  async function handlePageLoad() {
+  async function handlePageLoad(refresh = false) {
     // Disconnect previous observer if it exists
     if (actionsWrapperObserver) {
       actionsWrapperObserver.disconnect();
@@ -204,7 +217,7 @@ function initializePlane() {
     }
 
     // Don't inject if already exists
-    if (document.getElementById("solidtime-plane-tracking-btn")) {
+    if (!refresh && document.getElementById("solidtime-plane-tracking-btn")) {
       return;
     }
 
@@ -232,7 +245,7 @@ function initializePlane() {
       const issueDescription = `${issueInfo.issueKey} ${issueTitle}`;
 
       // Inject the time tracking button
-      await injectPlaneTimeTrackingButton(actionsWrapper, issueDescription);
+      await injectPlaneTimeTrackingButton(actionsWrapper, issueDescription, refresh);
 
       // Set up observer to watch for DOM changes that might remove the button
       actionsWrapperObserver = observePlaneActionsWrapper(issueDescription);
@@ -245,10 +258,12 @@ function initializePlane() {
   }
 
   // Initial load
-  handlePageLoad();
+  let pageLoad = handlePageLoad();
 
   // Watch for URL changes (Plane is an SPA)
   observePlaneUrlChanges(() => {
-    handlePageLoad();
+    pageLoad = pageLoad.then(() => handlePageLoad());
   });
+
+  return () => { pageLoad = pageLoad.then(() => handlePageLoad(true)); };
 }

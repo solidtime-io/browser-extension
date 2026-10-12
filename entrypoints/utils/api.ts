@@ -1,14 +1,16 @@
 import { createApiClient } from "@solidtime/api";
-import { accessToken, endpoint, refreshAccessToken } from "./oauth";
+import { accessToken, authReady, endpoint, refreshAccessToken } from "./oauth";
 
 export const apiClient = () => {
   const client = createApiClient(endpoint.value + "/api", {
     validate: "none",
-    axiosConfig: {
-      headers: {
-        Authorization: `Bearer ${accessToken.value}`,
-      },
-    },
+  });
+
+  client.axios.interceptors.request.use(async (config) => {
+    await authReady;
+    config.baseURL = endpoint.value + "/api";
+    config.headers.Authorization = `Bearer ${accessToken.value}`;
+    return config;
   });
 
   // Add response interceptor to handle 401 errors and refresh token
