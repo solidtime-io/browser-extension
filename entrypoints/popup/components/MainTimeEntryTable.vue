@@ -322,7 +322,7 @@ function switchOrganization() {
         <div v-else class="flex items-center justify-center h-full">
             <div class="flex flex-col items-center">
                 <LoadingSpinner class="ml-0 mr-0" />
-                <span class="py-3 font-medium text-sm text-muted text-center"
+                <span class="py-3 font-medium text-sm text-text-secondary text-center"
                     >Loading time entries...</span
                 >
             </div>

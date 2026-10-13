@@ -30,7 +30,7 @@ const currentOrganization = computed(() => {
                 class="cursor-pointer hover:bg-card-background border-border-primary transition space-x-2 flex"
             >
                 <span> {{ currentOrganization }} </span>
-                <ChevronDownIcon class="w-5 text-muted"></ChevronDownIcon>
+                <ChevronDownIcon class="w-5 text-text-secondary"></ChevronDownIcon>
             </Badge>
         </template>
     </SelectDropdown>
