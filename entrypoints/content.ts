@@ -33,18 +33,34 @@ import {
   removePlaneTimeTrackingButton,
 } from "./utils/plane";
 
+import {
+  getNotionPageInfo,
+  findNotionActionsWrapper,
+  waitForElement as waitForNotionElement,
+  observeNotionUrlChanges,
+  observeNotionActionsWrapper,
+  injectNotionTimeTrackingButton,
+  removeNotionTimeTrackingButton,
+} from "./utils/notion";
+
 export default defineContentScript({
   matches: [
     "*://linear.app/*",
     "*://app.linear.app/*",
     "*://*.atlassian.net/*",
     "*://app.plane.so/*",
+    "*://app.notion.com/*",
+    "*://*.notion.so/*",
+    "*://*.notion.com/*",
   ],
   main() {
     // Determine which platform we're on
     const isLinear = window.location.hostname.includes("linear.app");
     const isJira = window.location.hostname.includes("atlassian.net");
     const isPlane = window.location.hostname.includes("plane.so");
+    const isNotion =
+      window.location.hostname.endsWith("notion.so") ||
+      window.location.hostname.endsWith("notion.com");
 
     if (isLinear) {
       initializeLinear();
@@ -52,6 +68,8 @@ export default defineContentScript({
       initializeJira();
     } else if (isPlane) {
       initializePlane();
+    } else if (isNotion) {
+      initializeNotion();
     }
   },
 });
@@ -249,6 +267,64 @@ function initializePlane() {
 
   // Watch for URL changes (Plane is an SPA)
   observePlaneUrlChanges(() => {
+    handlePageLoad();
+  });
+}
+
+// Notion integration
+function initializeNotion() {
+  // Keep track of the current observer
+  let actionsWrapperObserver: MutationObserver | null = null;
+  // Incremented on every navigation so a slow, outdated run can bail out
+  let navigationId = 0;
+
+  // Function to inject time tracking if on a Notion database item
+  async function handlePageLoad() {
+    const currentNavigation = ++navigationId;
+
+    // Disconnect previous observer if it exists
+    if (actionsWrapperObserver) {
+      actionsWrapperObserver.disconnect();
+      actionsWrapperObserver = null;
+    }
+
+    // Peek open/close and item switches reuse the same document, so the
+    // old button is always removed and re-created for the new context
+    removeNotionTimeTrackingButton();
+
+    try {
+      // Only resolves on database items (pages that are not items time out)
+      const actionsWrapper = await waitForNotionElement(
+        findNotionActionsWrapper,
+        5000,
+      );
+
+      if (currentNavigation !== navigationId) {
+        return;
+      }
+
+      if (!getNotionPageInfo()) {
+        return;
+      }
+
+      await injectNotionTimeTrackingButton(actionsWrapper);
+
+      if (currentNavigation !== navigationId) {
+        return;
+      }
+
+      // Set up observer to watch for DOM changes that might remove the button
+      actionsWrapperObserver = observeNotionActionsWrapper();
+    } catch {
+      // Not a database item, nothing to inject
+    }
+  }
+
+  // Initial load
+  handlePageLoad();
+
+  // Watch for URL changes (Notion is an SPA)
+  observeNotionUrlChanges(() => {
     handlePageLoad();
   });
 }
