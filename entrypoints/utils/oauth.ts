@@ -1,12 +1,54 @@
-import { computed, ref } from "vue";
-import { useStorage } from "@vueuse/core";
+import { computed, ref, watch } from "vue";
 import { createApiClient } from "@solidtime/api";
 
-export const endpoint = useStorage(
+// Backed by browser.storage.local so content scripts see the same values as
+// the popup (localStorage is per origin and would not be shared)
+function useExtensionStorage(key: string, defaultValue: string) {
+  const state = ref(defaultValue);
+  let known = defaultValue;
+
+  const isExtensionPage = location.href.startsWith(browser.runtime.getURL(""));
+
+  browser.storage.local.get(key).then((result) => {
+    let value = result[key] as string | undefined;
+    // One-time migration of values saved in the popup's localStorage
+    if (value === undefined && isExtensionPage) {
+      const legacy = localStorage.getItem(key);
+      if (legacy) {
+        value = legacy;
+        browser.storage.local.set({ [key]: legacy });
+      }
+    }
+    if (value) {
+      known = value;
+      state.value = value;
+    }
+  });
+
+  browser.storage.onChanged.addListener((changes, area) => {
+    if (area === "local" && changes[key]) {
+      const value =
+        (changes[key].newValue as string | undefined) || defaultValue;
+      known = value;
+      state.value = value;
+    }
+  });
+
+  watch(state, (value) => {
+    if (value !== known) {
+      known = value;
+      browser.storage.local.set({ [key]: value });
+    }
+  });
+
+  return state;
+}
+
+export const endpoint = useExtensionStorage(
   "instance_endpoint",
   "https://app.solidtime.io",
 );
-export const clientId = useStorage(
+export const clientId = useExtensionStorage(
   "instance_client_id",
   "019b27e8-a52a-71d8-8d67-071cff97f315",
 );
