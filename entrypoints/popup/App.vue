@@ -10,6 +10,8 @@ import { useQuery } from "@tanstack/vue-query";
 import {
     isLoggedIn,
     startOAuthFlow,
+    loginWithApiToken,
+    endpoint,
     logout,
     getRedirectUrl,
     accessToken,
@@ -28,6 +30,9 @@ const showRedirectUrl = ref(false);
 const copiedRedirectUrl = ref(false);
 
 const redirectUrl = getRedirectUrl();
+
+const showTokenLogin = ref(false);
+const apiToken = ref("");
 
 // Fetch user data for timezone and week_start settings
 const { data: meResponse } = useQuery({
@@ -73,6 +78,21 @@ async function handleLogin() {
         console.error("Login error:", error);
         loginError.value =
             error instanceof Error ? error.message : "Failed to log in";
+        isLoggingIn.value = false;
+    }
+}
+
+async function handleTokenLogin() {
+    isLoggingIn.value = true;
+    loginError.value = null;
+
+    try {
+        await loginWithApiToken(apiToken.value);
+        apiToken.value = "";
+    } catch (error) {
+        loginError.value =
+            error instanceof Error ? error.message : "Failed to log in";
+    } finally {
         isLoggingIn.value = false;
     }
 }
@@ -163,6 +183,38 @@ async function copyRedirectUrl() {
                 >
                     {{ loginError }}
                 </p>
+
+                <!-- API token login -->
+                <div class="space-y-2 w-72">
+                    <button
+                        @click="showTokenLogin = !showTokenLogin"
+                        class="text-xs text-muted hover:text-white underline"
+                    >
+                        Log in with API token
+                    </button>
+                    <form
+                        v-if="showTokenLogin"
+                        class="space-y-2"
+                        @submit.prevent="handleTokenLogin"
+                    >
+                        <input
+                            v-model="endpoint"
+                            type="url"
+                            placeholder="Instance URL"
+                            class="w-full bg-secondary border border-border-primary rounded px-2 py-1 text-sm text-white"
+                        />
+                        <input
+                            v-model="apiToken"
+                            type="password"
+                            autocomplete="off"
+                            placeholder="API token"
+                            class="w-full bg-secondary border border-border-primary rounded px-2 py-1 text-sm text-white"
+                        />
+                        <PrimaryButton type="submit" :disabled="isLoggingIn">
+                            Save and verify
+                        </PrimaryButton>
+                    </form>
+                </div>
 
                 <!-- Redirect URL Info -->
                 <div class="mt-4 space-y-2">
