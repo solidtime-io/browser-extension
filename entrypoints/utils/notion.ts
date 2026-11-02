@@ -193,6 +193,18 @@ function createNotionTimeTrackingButton(isTracking: boolean): HTMLElement {
 }
 
 /**
+ * True when the running time entry is for the page currently open, i.e. its
+ * description equals the page title (ignoring surrounding/repeated whitespace)
+ */
+export function isTrackingPage(
+  entryDescription: string | null | undefined,
+  pageTitle: string,
+): boolean {
+  const normalize = (value: string) => value.replace(/\s+/g, " ").trim();
+  return normalize(entryDescription ?? "") === normalize(pageTitle);
+}
+
+/**
  * Injects the Time Tracking button to the left of the Share button.
  * The description is not passed in: it is read from the page title when the
  * button is clicked, so renames between inject and click are picked up.
@@ -212,7 +224,12 @@ export async function injectNotionTimeTrackingButton(
   try {
     if (accessToken.value) {
       const currentEntry = await getCurrentTimeEntry();
-      isTracking = currentEntry?.data?.id ? true : false;
+      isTracking =
+        !!currentEntry?.data?.id &&
+        isTrackingPage(
+          currentEntry.data.description,
+          getIssueTitleFromDOM() || "Untitled",
+        );
     }
   } catch (error) {
     console.error("Failed to get current time entry:", error);
@@ -233,7 +250,7 @@ export async function injectNotionTimeTrackingButton(
   }
 
   const button = createNotionTimeTrackingButton(isTracking);
-  button.addEventListener("click", () => handleNotionTrackingClick(isTracking));
+  button.addEventListener("click", () => handleNotionTrackingClick());
 
   const share = actionsWrapper.querySelector<HTMLElement>(
     `:scope > ${SHARE_SELECTOR}`,
@@ -246,11 +263,11 @@ export async function injectNotionTimeTrackingButton(
 }
 
 /**
- * Handles the Start/Stop Tracking button click
+ * Handles the Start/Stop Tracking button click. The state is read again here:
+ * Stop only if the running entry is for this page, otherwise stop whatever is
+ * running (if anything) and start an entry for this page.
  */
-async function handleNotionTrackingClick(
-  isCurrentlyTracking: boolean,
-): Promise<void> {
+async function handleNotionTrackingClick(): Promise<void> {
   const button = document.getElementById(BUTTON_ID);
   if (!button) return;
 
@@ -267,41 +284,46 @@ async function handleNotionTrackingClick(
 
     const client = apiClient();
 
-    if (isCurrentlyTracking) {
-      // Stop current time entry
-      const currentEntry = await getCurrentTimeEntry();
-      if (currentEntry?.data?.id) {
-        await client.updateTimeEntry(
-          {
-            ...currentEntry.data,
-            end: dayjs.utc().format(),
-          },
-          {
-            params: {
-              organization: currentEntry.data.organization_id,
-              timeEntry: currentEntry.data.id,
-            },
-          },
-        );
-      }
-    } else {
-      // Start new time entry
+    // Read the title now, not at inject time
+    const description = getIssueTitleFromDOM() || "Untitled";
+    const currentEntry = await getCurrentTimeEntry();
+    const running = currentEntry?.data?.id ? currentEntry.data : null;
+    const shouldStart =
+      !running || !isTrackingPage(running.description, description);
+
+    let organizationId: string | undefined;
+    let membershipId: string | undefined;
+    if (shouldStart) {
+      // Check before stopping anything, so a failure leaves the timer running
       const storage = await browser.storage.local.get([
         "current_organization_id",
         "currentMembershipId",
       ]);
-      const organizationId = storage.current_organization_id as
-        string | undefined;
-      const membershipId = storage.currentMembershipId as string | undefined;
+      organizationId = storage.current_organization_id as string | undefined;
+      membershipId = storage.currentMembershipId as string | undefined;
 
       if (!organizationId || !membershipId) {
         alert("Please select an organization in the Solidtime extension first");
         return;
       }
+    }
 
-      // Read the title now, not at inject time
-      const description = getIssueTitleFromDOM() || "Untitled";
+    if (running) {
+      await client.updateTimeEntry(
+        {
+          ...running,
+          end: dayjs.utc().format(),
+        },
+        {
+          params: {
+            organization: running.organization_id,
+            timeEntry: running.id,
+          },
+        },
+      );
+    }
 
+    if (shouldStart && organizationId && membershipId) {
       const timeEntryData: CreateTimeEntryBody = {
         member_id: membershipId,
         description,
