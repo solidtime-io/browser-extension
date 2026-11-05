@@ -2,7 +2,7 @@
 
 The official browser extension for [Solidtime](https://www.solidtime.io) - the modern open-source time tracker.
 
-Track time directly from your project management tools with seamless integration into Linear, Jira, and Plane.
+Track time directly from your project management tools with seamless integration into Linear, Jira, Plane, and Notion.
 
 ## Download
 
@@ -12,7 +12,7 @@ Track time directly from your project management tools with seamless integration
 ## Features
 
 - ⏱️ **Quick Time Tracking** - Start and stop timers directly from issue pages
-- 🔗 **Platform Integration** - Works seamlessly with Linear, Jira, and Plane
+- 🔗 **Platform Integration** - Works seamlessly with Linear, Jira, Plane, and Notion
 - 🎯 **Issue Context** - Automatically captures issue IDs and titles in your time entries
 - 🏢 **Organization Management** - Switch between multiple organizations
 - 🔒 **Secure OAuth** - Safe authentication with PKCE
@@ -25,6 +25,7 @@ Track time directly from your project management tools with seamless integration
 | Linear |<img  alt="Screenshot 2025-12-17 at 16 13 10" src="https://github.com/user-attachments/assets/3324196b-61f7-4b66-b2af-b7007de7e3a6" /> |
 | Jira | <img alt="Screenshot 2025-12-17 at 16 22 20" src="https://github.com/user-attachments/assets/d3d24ff0-6a87-44cc-a7f6-0fce459a5456" /> |
 | Plane | <img alt="Screenshot 2025-12-17 at 16 23 54" src="https://github.com/user-attachments/assets/716570b8-7f30-4475-9f42-403ae5894b2e" /> |
+| Notion | <!-- TODO: add screenshot --> Database items (e.g. tasks), full page and peek |
 
 
 More coming soon!
