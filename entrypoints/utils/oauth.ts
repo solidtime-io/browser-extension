@@ -1,5 +1,6 @@
 import { computed, ref } from "vue";
 import { useStorage } from "@vueuse/core";
+import { createApiClient } from "@solidtime/api";
 
 export const endpoint = useStorage(
   "instance_endpoint",
@@ -13,15 +14,19 @@ export const clientId = useStorage(
 // Use chrome.storage for tokens (survives popup closing)
 export const accessToken = ref("");
 export const refreshToken = ref("");
+// "api_token" for a personal API token, empty for OAuth
+export const authMode = ref("");
 
 // Load tokens from chrome.storage on init
 async function loadTokens() {
   const result = await browser.storage.local.get([
     "access_token",
     "refresh_token",
+    "auth_mode",
   ]);
   accessToken.value = result.access_token || "";
   refreshToken.value = result.refresh_token || "";
+  authMode.value = (result.auth_mode as string | undefined) || "";
 }
 
 // Watch for storage changes (from background script)
@@ -32,6 +37,9 @@ browser.storage.onChanged.addListener((changes, area) => {
     }
     if (changes.refresh_token) {
       refreshToken.value = changes.refresh_token.newValue || "";
+    }
+    if (changes.auth_mode) {
+      authMode.value = (changes.auth_mode.newValue as string | undefined) || "";
     }
   }
 });
@@ -49,6 +57,12 @@ let refreshPromise: Promise<void> | null = null;
 export async function refreshAccessToken(): Promise<void> {
   if (refreshPromise) {
     return refreshPromise;
+  }
+
+  if (authMode.value === "api_token") {
+    // API tokens cannot be refreshed
+    await logout();
+    throw new Error("Token is invalid or expired, enter a new one");
   }
 
   const currentRefreshToken = refreshToken.value;
@@ -122,8 +136,46 @@ export async function startOAuthFlow(): Promise<void> {
   });
 }
 
+export async function loginWithApiToken(token: string): Promise<void> {
+  const trimmed = token.trim();
+  if (!trimmed) {
+    throw new Error("Enter an API token");
+  }
+
+  // Validate against the configured endpoint before saving anything
+  const client = createApiClient(endpoint.value + "/api", {
+    validate: "none",
+    axiosConfig: { headers: { Authorization: `Bearer ${trimmed}` } },
+  });
+  try {
+    await client.getMyMemberships({});
+  } catch (error) {
+    const status = (error as { response?: { status?: number } }).response
+      ?.status;
+    throw new Error(
+      status === 401
+        ? "Token is invalid or expired, enter a new one"
+        : "Could not verify the token, check the instance URL",
+    );
+  }
+
+  await browser.storage.local.remove("refresh_token");
+  await browser.storage.local.set({
+    access_token: trimmed,
+    auth_mode: "api_token",
+  });
+  refreshToken.value = "";
+  authMode.value = "api_token";
+  accessToken.value = trimmed;
+}
+
 export async function logout() {
   accessToken.value = "";
   refreshToken.value = "";
-  await browser.storage.local.remove(["access_token", "refresh_token"]);
+  authMode.value = "";
+  await browser.storage.local.remove([
+    "access_token",
+    "refresh_token",
+    "auth_mode",
+  ]);
 }
