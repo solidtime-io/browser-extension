@@ -162,7 +162,7 @@ async function updateTimeEntries(ids: string[], changes: Partial<TimeEntry>) {
 async function deleteTimeEntries(entries: TimeEntry[]) {
     const client = apiClient();
     for (const entry of entries) {
-        await client.deleteTimeEntry({
+        await client.deleteTimeEntry(undefined, {
             params: {
                 organization: currentOrganizationId.value!,
                 timeEntry: entry.id,
