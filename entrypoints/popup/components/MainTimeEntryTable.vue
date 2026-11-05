@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useQuery } from "@tanstack/vue-query";
+import { useQuery, useQueryClient } from "@tanstack/vue-query";
 import { computed, onMounted, watch, watchEffect } from "vue";
 import {
     TimeEntryGroupedTable,
@@ -29,6 +29,18 @@ import type {
 // Use shared memberships state
 const { currentOrganizationId, currentMembership, memberships } =
     useMyMemberships();
+
+const queryClient = useQueryClient();
+
+// Refetch the list and the running timer after changes made from the list
+async function refreshTimeEntries() {
+    await Promise.all([
+        queryClient.invalidateQueries({
+            queryKey: ["timeEntries", currentOrganizationId],
+        }),
+        queryClient.invalidateQueries({ queryKey: ["currentTimeEntry"] }),
+    ]);
+}
 
 // Fetch time entries
 const { data: timeEntriesResponse } = useQuery({
@@ -139,6 +151,7 @@ async function createTimeEntry(entry: Omit<CreateTimeEntryBody, "member_id">) {
         { ...entry, member_id: currentMembership.value!.id },
         { params: { organization: currentOrganizationId.value! } },
     );
+    await refreshTimeEntries();
 }
 
 async function updateTimeEntry(entry: TimeEntry) {
@@ -149,6 +162,7 @@ async function updateTimeEntry(entry: TimeEntry) {
             timeEntry: entry.id,
         },
     });
+    await refreshTimeEntries();
 }
 
 async function updateTimeEntries(ids: string[], changes: Partial<TimeEntry>) {
@@ -157,6 +171,7 @@ async function updateTimeEntries(ids: string[], changes: Partial<TimeEntry>) {
         { ids, changes: changes as UpdateMultipleTimeEntriesChangeset },
         { params: { organization: currentOrganizationId.value! } },
     );
+    await refreshTimeEntries();
 }
 
 async function deleteTimeEntries(entries: TimeEntry[]) {
@@ -169,6 +184,7 @@ async function deleteTimeEntries(entries: TimeEntry[]) {
             },
         });
     }
+    await refreshTimeEntries();
 }
 
 const selectedTimeEntries = computed({
