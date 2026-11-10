@@ -193,6 +193,24 @@ function createNotionTimeTrackingButton(isTracking: boolean): HTMLElement {
 }
 
 /**
+ * The running time entry, or null when none is running (the API answers 404
+ * for "no active time entry", which is not an error here)
+ */
+export async function getRunningEntry() {
+  try {
+    const response = await getCurrentTimeEntry();
+    return response?.data?.id ? response.data : null;
+  } catch (error) {
+    if (
+      (error as { response?: { status?: number } }).response?.status === 404
+    ) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+/**
  * True when the running time entry is for the page currently open, i.e. its
  * description equals the page title (ignoring surrounding/repeated whitespace)
  */
@@ -223,11 +241,11 @@ export async function injectNotionTimeTrackingButton(
   let isTracking = false;
   try {
     if (accessToken.value) {
-      const currentEntry = await getCurrentTimeEntry();
+      const running = await getRunningEntry();
       isTracking =
-        !!currentEntry?.data?.id &&
+        !!running &&
         isTrackingPage(
-          currentEntry.data.description,
+          running.description,
           getIssueTitleFromDOM() || "Untitled",
         );
     }
@@ -286,8 +304,7 @@ async function handleNotionTrackingClick(): Promise<void> {
 
     // Read the title now, not at inject time
     const description = getIssueTitleFromDOM() || "Untitled";
-    const currentEntry = await getCurrentTimeEntry();
-    const running = currentEntry?.data?.id ? currentEntry.data : null;
+    const running = await getRunningEntry();
     const shouldStart =
       !running || !isTrackingPage(running.description, description);
 
